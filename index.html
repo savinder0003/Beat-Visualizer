@@ -1,0 +1,1092 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rhythm Accent Visualizer</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #282c34;
+        color: white;
+      }
+
+      .container {
+        text-align: center;
+        width: 80%;
+        max-width: 1200px;
+      }
+
+      .controls {
+        margin-bottom: 20px;
+      }
+
+      .controls label {
+        margin-right: 10px;
+      }
+
+      #bpmDisplay {
+        margin-left: 10px;
+        font-weight: bold;
+      }
+
+      .display {
+        font-size: 64px;
+        font-weight: bold;
+        margin-top: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 2px solid white;
+        padding: 20px;
+        border-radius: 10px;
+        background-color: black;
+        height: 150px;
+      }
+
+      .note {
+        margin: 0 20px;
+        position: relative;
+        transition: transform 0.1s ease;
+      }
+
+      .note.active {
+        transform: scale(1.5);
+      }
+
+      .accent {
+        color: red;
+      }
+
+      .skip {
+        color: orange;
+      }
+
+      .checkboxes {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+
+      .checkboxes label {
+        margin: 0 10px;
+      }
+
+      .bar-controls {
+        margin-top: 20px;
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .bar-controls .bar {
+        margin: 10px;
+      }
+
+      .bar-controls .bar label {
+        margin-right: 5px;
+      }
+
+      .accent-controls,
+      .skip-controls {
+        margin-top: 20px;
+      }
+
+      button,
+      select,
+      input[type="range"],
+      input[type="number"],
+      input[type="file"] {
+        background-color: #61dafb;
+        border: none;
+        border-radius: 5px;
+        padding: 10px;
+        margin: 5px;
+        color: black;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      button:hover,
+      select:hover,
+      input[type="range"]:hover,
+      input[type="number"]:hover,
+      input[type="file"]:hover {
+        background-color: #21a1f1;
+      }
+
+      button:active,
+      select:active,
+      input[type="range"]:active,
+      input[type="number"]:active,
+      input[type="file"]:active {
+        background-color: #1b8cd8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Rhythm Accent Visualizer</h1>
+      <div class="controls">
+        <label for="bpm">BPM:</label>
+        <input type="range" id="bpm" min="40" max="200" value="120" />
+        <span id="bpmDisplay">120</span>
+
+        <label for="subdivision">Subdivision:</label>
+        <select id="subdivision">
+          <option value="quarter">Quarter Notes</option>
+          <option value="eighth">Eighth Notes</option>
+          <option value="sixteenth">Sixteenth Notes</option>
+          <option value="triplet">Triplets</option>
+        </select>
+
+        <label for="bars">Number of Bars:</label>
+        <input type="number" id="bars" min="1" value="1" />
+
+        <label for="regularSound">Regular Sound:</label>
+        <input type="file" id="regularSound" accept="audio/*" />
+
+        <label for="accentSound">Accent Sound:</label>
+        <input type="file" id="accentSound" accept="audio/*" />
+      </div>
+
+      <div class="bar-controls" id="barControls"></div>
+
+      <div class="accent-controls" id="accentControls"></div>
+      <div class="skip-controls" id="skipControls"></div>
+
+      <div class="display" id="display"></div>
+      <button id="startButton">Start</button>
+      <button id="stopButton">Stop</button>
+      <button id="resetButton">Reset</button>
+    </div>
+
+    <audio id="defaultMetronome" src="metronome.wav" preload="auto"></audio>
+    <audio id="defaultAccent" src="accent.wav" preload="auto"></audio>
+
+    <script>
+      const bpmInput = document.getElementById("bpm");
+      const bpmDisplay = document.getElementById("bpmDisplay");
+      const subdivisionSelect = document.getElementById("subdivision");
+      const barsInput = document.getElementById("bars");
+      const display = document.getElementById("display");
+      const startButton = document.getElementById("startButton");
+      const stopButton = document.getElementById("stopButton");
+      const resetButton = document.getElementById("resetButton");
+      const regularSoundInput = document.getElementById("regularSound");
+      const accentSoundInput = document.getElementById("accentSound");
+      const defaultMetronome = document.getElementById("defaultMetronome");
+      const defaultAccent = document.getElementById("defaultAccent");
+      const barControls = document.getElementById("barControls");
+      const accentControls = document.getElementById("accentControls");
+      const skipControls = document.getElementById("skipControls");
+
+      let intervalId;
+      let regularSound = defaultMetronome;
+      let accentSound = defaultAccent;
+
+      bpmInput.addEventListener("input", () => {
+        bpmDisplay.textContent = bpmInput.value;
+      });
+
+      subdivisionSelect.addEventListener("change", updateBarControls);
+      barsInput.addEventListener("input", updateBarControls);
+
+      regularSoundInput.addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          regularSound = new Audio(URL.createObjectURL(file));
+        } else {
+          regularSound = defaultMetronome;
+        }
+      });
+
+      accentSoundInput.addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          accentSound = new Audio(URL.createObjectURL(file));
+        } else {
+          accentSound = defaultAccent;
+        }
+      });
+
+      startButton.addEventListener("click", () => {
+        if (intervalId) clearInterval(intervalId);
+        startRhythm();
+      });
+
+      stopButton.addEventListener("click", () => {
+        if (intervalId) clearInterval(intervalId);
+      });
+
+      resetButton.addEventListener("click", () => {
+        if (intervalId) clearInterval(intervalId);
+        display.innerHTML = "";
+        updateBarControls();
+      });
+
+      function updateBarControls() {
+        const numberOfBars = parseInt(barsInput.value);
+        const subdivision = subdivisionSelect.value;
+        const notes = generateNotes(subdivision);
+        barControls.innerHTML = "";
+        accentControls.innerHTML = "";
+        skipControls.innerHTML = "";
+
+        for (let i = 0; i < numberOfBars; i++) {
+          const barDiv = document.createElement("div");
+          barDiv.classList.add("bar");
+          barDiv.innerHTML = `<label>Bar ${i + 1}:</label>`;
+
+          const accentDiv = document.createElement("div");
+          accentDiv.classList.add("bar");
+          accentDiv.innerHTML = `<label>Bar ${i + 1} Accents:</label>`;
+
+          const skipDiv = document.createElement("div");
+          skipDiv.classList.add("bar");
+          skipDiv.innerHTML = `<label>Bar ${i + 1} Skips:</label>`;
+
+          notes.forEach((note, index) => {
+            const label = document.createElement("label");
+            const accentCheckbox = document.createElement("input");
+            accentCheckbox.type = "checkbox";
+            accentCheckbox.value = index;
+            accentCheckbox.classList.add("accent-checkbox");
+            label.appendChild(accentCheckbox);
+            label.appendChild(document.createTextNode(note));
+            accentDiv.appendChild(label);
+
+            const skipLabel = document.createElement("label");
+            const skipCheckbox = document.createElement("input");
+            skipCheckbox.type = "checkbox";
+            skipCheckbox.value = index;
+            skipCheckbox.classList.add("skip-checkbox");
+            skipLabel.appendChild(skipCheckbox);
+            skipLabel.appendChild(document.createTextNode(note));
+            skipDiv.appendChild(skipLabel);
+          });
+
+          barControls.appendChild(barDiv);
+          accentControls.appendChild(accentDiv);
+          skipControls.appendChild(skipDiv);
+        }
+      }
+
+      function startRhythm() {
+        const bpm = parseInt(bpmInput.value);
+        const subdivision = subdivisionSelect.value;
+        const numberOfBars = parseInt(barsInput.value);
+        const notes = generateNotes(subdivision);
+        const interval =
+          60000 /
+          bpm /
+          (subdivision === "quarter"
+            ? 1
+            : subdivision === "eighth"
+            ? 2
+            : subdivision === "sixteenth"
+            ? 4
+            : 3);
+
+        const accents = [];
+        const skips = [];
+        accentControls.querySelectorAll(".bar").forEach((bar, barIndex) => {
+          const barAccents = Array.from(
+            bar.querySelectorAll(".accent-checkbox:checked")
+          ).map((cb) => parseInt(cb.value));
+          accents.push(barAccents);
+        });
+
+        skipControls.querySelectorAll(".bar").forEach((bar, barIndex) => {
+          const barSkips = Array.from(
+            bar.querySelectorAll(".skip-checkbox:checked")
+          ).map((cb) => parseInt(cb.value));
+          skips.push(barSkips);
+        });
+
+        let index = 0;
+        let barIndex = 0;
+
+        intervalId = setInterval(() => {
+          display.innerHTML = notes
+            .map((note, i) => {
+              if (skips[barIndex].includes(i)) {
+                return '<span class="note skip">x</span>';
+              }
+              return `<span class="note ${i === index ? "active" : ""} ${
+                accents[barIndex].includes(i) ? "accent" : ""
+              }">${note}</span>`;
+            })
+            .join("");
+
+          if (!skips[barIndex].includes(index)) {
+            if (accents[barIndex].includes(index)) {
+              accentSound.currentTime = 0;
+              accentSound.play();
+            } else {
+              regularSound.currentTime = 0;
+              regularSound.play();
+            }
+          }
+
+          index = (index + 1) % notes.length;
+          if (index === 0) {
+            barIndex = (barIndex + 1) % numberOfBars;
+          }
+        }, interval);
+      }
+
+      function generateNotes(subdivision) {
+        switch (subdivision) {
+          case "quarter":
+            return ["1", "2", "3", "4"];
+          case "eighth":
+            return ["1", "n", "2", "n", "3", "n", "4", "n"];
+          case "sixteenth":
+            return [
+              "1",
+              "e",
+              "n",
+              "a",
+              "2",
+              "e",
+              "n",
+              "a",
+              "3",
+              "e",
+              "n",
+              "a",
+              "4",
+              "e",
+              "n",
+              "a",
+            ];
+          case "triplet":
+            return ["1", "n", "a", "2", "n", "a", "3", "n", "a", "4", "n", "a"];
+          default:
+            return [];
+        }
+      }
+
+      updateBarControls();
+    </script>
+  </body>
+</html> -->
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rhythm Accent Visualizer</title>
+    <style>
+      body {
+        font-family: "Roboto", sans-serif;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #1e1e1e;
+        color: #ffffff;
+      }
+
+      .container {
+        text-align: center;
+        width: 90%;
+        max-width: 1400px;
+      }
+
+      .controls {
+        margin-bottom: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        padding: 10px;
+        background-color: #282c34;
+        border-radius: 10px;
+      }
+
+      .controls label {
+        margin-right: 10px;
+      }
+
+      .controls input,
+      .controls select {
+        margin-left: 5px;
+      }
+
+      #bpmDisplay {
+        margin-left: 10px;
+        font-weight: bold;
+      }
+
+      .grid-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-top: 20px;
+        width: 100%;
+      }
+
+      .grid {
+        display: grid;
+        gap: 2px;
+        background-color: #000;
+        padding: 10px;
+        border-radius: 10px;
+        transition: height 0.3s;
+        width: 110%;
+      }
+
+      .grid-cell {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 1px solid #333;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s, transform 0.1s;
+        font-size: 60px;
+        color: #fff;
+      }
+
+      .grid-cell.regular {
+        background-color: #444;
+      }
+
+      .grid-cell.accent {
+        background-color: #ff4081;
+      }
+
+      .grid-cell.skip {
+        background-color: #ff9800;
+      }
+
+      .grid-cell.active {
+        transform: scale(1.2);
+        border: 2px solid #61dafb;
+      }
+
+      .size-slider {
+        margin-top: 10px;
+      }
+
+      button,
+      select,
+      input[type="range"],
+      input[type="number"],
+      input[type="file"] {
+        background-color: #61dafb;
+        border: none;
+        border-radius: 5px;
+        padding: 10px;
+        margin: 5px;
+        color: black;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      button:hover,
+      select:hover,
+      input[type="range"]:hover,
+      input[type="number"]:hover,
+      input[type="file"]:hover {
+        background-color: #21a1f1;
+      }
+
+      button:active,
+      select:active,
+      input[type="range"]:active,
+      input[type="number"]:active,
+      input[type="file"]:active {
+        background-color: #1b8cd8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="controls">
+        <label for="bpm">BPM:</label>
+        <input type="range" id="bpm" min="40" max="200" value="120" />
+        <span id="bpmDisplay">120</span>
+
+        <label for="subdivision">Subdivision:</label>
+        <select id="subdivision">
+          <option value="quarter">Quarter Notes</option>
+          <option value="eighth">Eighth Notes</option>
+          <option value="sixteenth">Sixteenth Notes</option>
+          <option value="triplet">Triplets</option>
+        </select>
+
+        <label for="bars">Number of Bars:</label>
+        <input type="number" id="bars" min="1" value="1" />
+
+        <label for="regularSound">Regular Sound:</label>
+        <input type="file" id="regularSound" accept="audio/*" />
+
+        <label for="accentSound">Accent Sound:</label>
+        <input type="file" id="accentSound" accept="audio/*" />
+      </div>
+
+      <div class="grid-container">
+        <div class="grid" id="grid"></div>
+        <input
+          type="range"
+          id="sizeSlider"
+          class="size-slider"
+          min="100"
+          max="500"
+          value="300"
+        />
+      </div>
+
+      <div>
+        <button id="startButton">Start</button>
+        <button id="stopButton">Stop</button>
+        <button id="resetButton">Reset</button>
+      </div>
+    </div>
+
+    <audio id="defaultMetronome" src="metronome.wav" preload="auto"></audio>
+    <audio id="defaultAccent" src="accent.wav" preload="auto"></audio>
+
+    <script>
+      const bpmInput = document.getElementById("bpm");
+      const bpmDisplay = document.getElementById("bpmDisplay");
+      const subdivisionSelect = document.getElementById("subdivision");
+      const barsInput = document.getElementById("bars");
+      const grid = document.getElementById("grid");
+      const sizeSlider = document.getElementById("sizeSlider");
+      const startButton = document.getElementById("startButton");
+      const stopButton = document.getElementById("stopButton");
+      const resetButton = document.getElementById("resetButton");
+      const regularSoundInput = document.getElementById("regularSound");
+      const accentSoundInput = document.getElementById("accentSound");
+      const defaultMetronome = document.getElementById("defaultMetronome");
+      const defaultAccent = document.getElementById("defaultAccent");
+
+      let intervalId;
+      let regularSound = defaultMetronome;
+      let accentSound = defaultAccent;
+
+      bpmInput.addEventListener("input", () => {
+        bpmDisplay.textContent = bpmInput.value;
+      });
+
+      subdivisionSelect.addEventListener("change", updateGrid);
+      barsInput.addEventListener("input", updateGrid);
+
+      regularSoundInput.addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          regularSound = new Audio(URL.createObjectURL(file));
+        } else {
+          regularSound = defaultMetronome;
+        }
+      });
+
+      accentSoundInput.addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          accentSound = new Audio(URL.createObjectURL(file));
+        } else {
+          accentSound = defaultAccent;
+        }
+      });
+
+      startButton.addEventListener("click", () => {
+        if (intervalId) clearInterval(intervalId);
+        startRhythm();
+      });
+
+      stopButton.addEventListener("click", () => {
+        if (intervalId) clearInterval(intervalId);
+      });
+
+      resetButton.addEventListener("click", () => {
+        if (intervalId) clearInterval(intervalId);
+        updateGrid();
+      });
+
+      sizeSlider.addEventListener("input", () => {
+        grid.style.height = `${sizeSlider.value}px`;
+        updateGrid();
+      });
+
+      function updateGrid() {
+        const numberOfBars = parseInt(barsInput.value);
+        const subdivision = subdivisionSelect.value;
+        const notes = generateNotes(subdivision);
+        const totalCells = numberOfBars * notes.length;
+        const cellSize = Math.min(
+          grid.clientWidth / notes.length,
+          sizeSlider.value / numberOfBars
+        );
+        grid.innerHTML = "";
+        grid.style.gridTemplateColumns = `repeat(${notes.length}, ${cellSize}px)`;
+        grid.style.gridTemplateRows = `repeat(${numberOfBars}, ${cellSize}px)`;
+        grid.style.height = `${sizeSlider.value}px`;
+
+        for (let i = 0; i < totalCells; i++) {
+          const cell = document.createElement("div");
+          cell.classList.add("grid-cell", "regular");
+          cell.dataset.index = i;
+          cell.dataset.type = "regular";
+          cell.textContent = notes[i % notes.length];
+          cell.style.width = `${cellSize}px`;
+          cell.style.height = `${cellSize}px`;
+          cell.addEventListener("click", () => {
+            toggleCellType(cell);
+          });
+          grid.appendChild(cell);
+        }
+      }
+
+      function toggleCellType(cell) {
+        const currentType = cell.dataset.type;
+        if (currentType === "regular") {
+          cell.dataset.type = "accent";
+          cell.classList.remove("regular");
+          cell.classList.add("accent");
+        } else if (currentType === "accent") {
+          cell.dataset.type = "skip";
+          cell.classList.remove("accent");
+          cell.classList.add("skip");
+        } else {
+          cell.dataset.type = "regular";
+          cell.classList.remove("skip");
+          cell.classList.add("regular");
+        }
+      }
+
+      function startRhythm() {
+        const bpm = parseInt(bpmInput.value);
+        const subdivision = subdivisionSelect.value;
+        const numberOfBars = parseInt(barsInput.value);
+        const notes = generateNotes(subdivision);
+        const interval =
+          60000 /
+          bpm /
+          (subdivision === "quarter"
+            ? 1
+            : subdivision === "eighth"
+            ? 2
+            : subdivision === "sixteenth"
+            ? 4
+            : 3);
+
+        const cells = Array.from(grid.children);
+        let index = 0;
+
+        intervalId = setInterval(() => {
+          cells.forEach((cell, i) => {
+            cell.classList.remove("active");
+            if (i === index) {
+              cell.classList.add("active");
+              const cellType = cell.dataset.type;
+              if (cellType === "regular") {
+                regularSound.currentTime = 0;
+                regularSound.play();
+              } else if (cellType === "accent") {
+                accentSound.currentTime = 0;
+                accentSound.play();
+              }
+            }
+          });
+
+          index = (index + 1) % cells.length;
+        }, interval);
+      }
+
+      function generateNotes(subdivision) {
+        switch (subdivision) {
+          case "quarter":
+            return ["1", "2", "3", "4"];
+          case "eighth":
+            return ["1", "&", "2", "&", "3", "&", "4", "&"];
+          case "sixteenth":
+            return [
+              "1",
+              "e",
+              "&",
+              "a",
+              "2",
+              "e",
+              "&",
+              "a",
+              "3",
+              "e",
+              "&",
+              "a",
+              "4",
+              "e",
+              "&",
+              "a",
+            ];
+          case "triplet":
+            return ["1", "n", "a", "2", "n", "a", "3", "n", "a", "4", "n", "a"];
+          default:
+            return [];
+        }
+      }
+
+      updateGrid();
+    </script>
+  </body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rhythm Accent Visualizer</title>
+    <style>
+      body {
+        font-family: "Roboto", sans-serif;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #1e1e1e;
+        color: #ffffff;
+      }
+
+      .container {
+        text-align: center;
+        width: 90%;
+        max-width: 1400px;
+      }
+
+      .controls {
+        margin-bottom: 20px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        padding: 10px;
+        background-color: #282c34;
+        border-radius: 10px;
+      }
+
+      .controls label {
+        margin-right: 10px;
+      }
+
+      .controls input,
+      .controls select {
+        margin-left: 5px;
+      }
+
+      #bpmDisplay {
+        margin-left: 10px;
+        font-weight: bold;
+      }
+
+      .grid-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-top: 20px;
+        width: 100%;
+      }
+
+      .grid {
+        display: grid;
+        gap: 2px;
+        /* background-color: #444; */
+        background-color: #1e1e1e;
+        padding: 10px;
+        border-radius: 10px;
+        transition: height 0.3s;
+        width: 100%;
+        justify-content: center;
+      }
+
+      .grid-cell {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 1px solid #333;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s, transform 0.1s;
+        font-size: 18px;
+        color: #fff;
+      }
+
+      .grid-cell.regular {
+        background-color: #444;
+      }
+
+      .grid-cell.accent {
+        background-color: #ff4081;
+      }
+
+      .grid-cell.skip {
+        background-color: #ff9800;
+      }
+
+      .grid-cell.active {
+        transform: scale(1.2);
+        border: 2px solid #61dafb;
+      }
+
+      .size-slider {
+        margin-top: 10px;
+      }
+
+      button,
+      select,
+      input[type="range"],
+      input[type="number"] {
+        background-color: #fab038;
+        border: none;
+        border-radius: 5px;
+        padding: 10px;
+        margin: 5px;
+        color: black;
+        font-size: 16px;
+        cursor: pointer;
+      }
+
+      button:hover,
+      select:hover,
+      input[type="range"]:hover,
+      input[type="number"]:hover {
+        background-color: #21a1f1;
+      }
+
+      button:active,
+      select:active,
+      input[type="range"]:active,
+      input[type="number"]:active {
+        background-color: #1b8cd8;
+      }
+
+      h1 {
+        margin-bottom: 100px;
+        font-size: 60px;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <h1>Rhythm Accent Visualizer</h1>
+    </div>
+
+    <div class="container">
+      <div class="controls">
+        <label for="bpm">BPM:</label>
+        <input type="range" id="bpm" min="40" max="200" value="120" />
+        <span id="bpmDisplay">120</span>
+
+        <label for="subdivision">Subdivision:</label>
+        <select id="subdivision">
+          <option value="quarter">Quarter Notes</option>
+          <option value="eighth">Eighth Notes</option>
+          <option value="sixteenth">Sixteenth Notes</option>
+          <option value="triplet">Triplets</option>
+        </select>
+
+        <label for="bars">Number of Bars:</label>
+        <input type="number" id="bars" min="1" value="1" />
+      </div>
+
+      <div class="grid-container">
+        <div class="grid" id="grid"></div>
+        <input
+          type="range"
+          id="sizeSlider"
+          class="size-slider"
+          min="100"
+          max="500"
+          value="300"
+        />
+      </div>
+
+      <div>
+        <button id="startButton">Start</button>
+        <button id="stopButton">Stop</button>
+        <button id="resetButton">Reset</button>
+      </div>
+    </div>
+
+    <audio id="defaultMetronome" src="Metronome.wav" preload="auto"></audio>
+    <audio id="defaultAccent" src="Metronomeup.wav" preload="auto"></audio>
+
+    <script>
+      const bpmInput = document.getElementById("bpm");
+      const bpmDisplay = document.getElementById("bpmDisplay");
+      const subdivisionSelect = document.getElementById("subdivision");
+      const barsInput = document.getElementById("bars");
+      const grid = document.getElementById("grid");
+      const sizeSlider = document.getElementById("sizeSlider");
+      const startButton = document.getElementById("startButton");
+      const stopButton = document.getElementById("stopButton");
+      const resetButton = document.getElementById("resetButton");
+      const defaultMetronome = document.getElementById("defaultMetronome");
+      const defaultAccent = document.getElementById("defaultAccent");
+
+      let intervalId;
+      let regularSound = defaultMetronome;
+      let accentSound = defaultAccent;
+
+      bpmInput.addEventListener("input", () => {
+        bpmDisplay.textContent = bpmInput.value;
+      });
+
+      subdivisionSelect.addEventListener("change", updateGrid);
+      barsInput.addEventListener("input", updateGrid);
+
+      startButton.addEventListener("click", () => {
+        if (intervalId) clearInterval(intervalId);
+        startRhythm();
+      });
+
+      stopButton.addEventListener("click", () => {
+        if (intervalId) clearInterval(intervalId);
+      });
+
+      resetButton.addEventListener("click", () => {
+        if (intervalId) clearInterval(intervalId);
+        updateGrid();
+      });
+
+      sizeSlider.addEventListener("input", () => {
+        grid.style.height = `${sizeSlider.value}px`;
+        updateGrid();
+      });
+
+      function updateGrid() {
+        const numberOfBars = parseInt(barsInput.value);
+        const subdivision = subdivisionSelect.value;
+        const notes = generateNotes(subdivision);
+        const totalCells = numberOfBars * notes.length;
+        const cellSize = Math.min(
+          grid.clientWidth / notes.length,
+          sizeSlider.value / numberOfBars
+        );
+        grid.innerHTML = "";
+        grid.style.gridTemplateColumns = `repeat(${notes.length}, ${cellSize}px)`;
+        grid.style.gridTemplateRows = `repeat(${numberOfBars}, ${cellSize}px)`;
+        grid.style.height = `${sizeSlider.value}px`;
+
+        for (let i = 0; i < totalCells; i++) {
+          const cell = document.createElement("div");
+          cell.classList.add("grid-cell", "regular");
+          cell.dataset.index = i;
+          cell.dataset.type = "regular";
+          cell.textContent = notes[i % notes.length];
+          cell.style.width = `${cellSize}px`;
+          cell.style.height = `${cellSize}px`;
+          cell.addEventListener("click", () => {
+            toggleCellType(cell);
+          });
+          grid.appendChild(cell);
+        }
+      }
+
+      function toggleCellType(cell) {
+        const currentType = cell.dataset.type;
+        if (currentType === "regular") {
+          cell.dataset.type = "accent";
+          cell.classList.remove("regular");
+          cell.classList.add("accent");
+        } else if (currentType === "accent") {
+          cell.dataset.type = "skip";
+          cell.classList.remove("accent");
+          cell.classList.add("skip");
+        } else {
+          cell.dataset.type = "regular";
+          cell.classList.remove("skip");
+          cell.classList.add("regular");
+        }
+      }
+
+      function startRhythm() {
+        const bpm = parseInt(bpmInput.value);
+        const subdivision = subdivisionSelect.value;
+        const numberOfBars = parseInt(barsInput.value);
+        const notes = generateNotes(subdivision);
+        const interval =
+          60000 /
+          bpm /
+          (subdivision === "quarter"
+            ? 1
+            : subdivision === "eighth"
+            ? 2
+            : subdivision === "sixteenth"
+            ? 4
+            : 3);
+
+        const cells = Array.from(grid.children);
+        let index = 0;
+
+        intervalId = setInterval(() => {
+          cells.forEach((cell, i) => {
+            cell.classList.remove("active");
+            if (i === index) {
+              cell.classList.add("active");
+              const cellType = cell.dataset.type;
+              if (cellType === "regular") {
+                regularSound.currentTime = 0;
+                regularSound.play();
+              } else if (cellType === "accent") {
+                accentSound.currentTime = 0;
+                accentSound.play();
+              }
+            }
+          });
+
+          index = (index + 1) % cells.length;
+        }, interval);
+      }
+
+      function generateNotes(subdivision) {
+        switch (subdivision) {
+          case "quarter":
+            return ["1", "2", "3", "4"];
+          case "eighth":
+            return ["1", "&", "2", "&", "3", "&", "4", "&"];
+          case "sixteenth":
+            return [
+              "1",
+              "e",
+              "&",
+              "a",
+              "2",
+              "e",
+              "&",
+              "a",
+              "3",
+              "e",
+              "&",
+              "a",
+              "4",
+              "e",
+              "&",
+              "a",
+            ];
+          case "triplet":
+            return ["1", "n", "a", "2", "n", "a", "3", "n", "a", "4", "n", "a"];
+          default:
+            return [];
+        }
+      }
+
+      updateGrid();
+    </script>
+  </body>
+</html>
