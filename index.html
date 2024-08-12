@@ -879,6 +879,50 @@
         margin-bottom: 100px;
         font-size: 60px;
       }
+
+      .how-to-use {
+        margin-top: 20px;
+        padding: 10px;
+        background-color: #282c34;
+        border-radius: 10px;
+        display: none;
+      }
+
+      .how-to-use p {
+        margin: 10px 0;
+      }
+
+      .how-to-use .example-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 60px);
+        gap: 2px;
+        justify-content: center;
+        margin-top: 10px;
+      }
+
+      .how-to-use .example-cell {
+        width: 60px;
+        height: 60px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 1px solid #333;
+        border-radius: 5px;
+        font-size: 18px;
+        color: #fff;
+      }
+
+      .how-to-use .example-cell.regular {
+        background-color: #444;
+      }
+
+      .how-to-use .example-cell.accent {
+        background-color: #ff4081;
+      }
+
+      .how-to-use .example-cell.skip {
+        background-color: #ff9800;
+      }
     </style>
   </head>
   <body>
@@ -923,8 +967,23 @@
       </div>
     </div>
 
+    <button id="toggleHowToUseButton">How to Use</button>
+    <div class="how-to-use" id="howToUse">
+      <h2>How to Use</h2>
+      <p>Click on the grid cells to set the rhythm:</p>
+      <p>Single click: <span style="color: #ff4081">Accent (Pink)</span></p>
+      <p>Click again: <span style="color: #ff9800">Skip (Orange)</span></p>
+      <p>Click once more to reset to regular.</p>
+      <div class="example-grid">
+        <div class="example-cell regular">1</div>
+        <div class="example-cell accent">2</div>
+        <div class="example-cell skip">3</div>
+        <div class="example-cell regular">4</div>
+      </div>
+    </div>
+
     <audio id="defaultMetronome" src="Metronome.wav" preload="auto"></audio>
-    <audio id="defaultAccent" src="MetronomeUp.wav" preload="auto"></audio>
+    <audio id="defaultAccent" src="Metronomeup.wav" preload="auto"></audio>
 
     <script>
       const bpmInput = document.getElementById("bpm");
@@ -938,6 +997,10 @@
       const resetButton = document.getElementById("resetButton");
       const defaultMetronome = document.getElementById("defaultMetronome");
       const defaultAccent = document.getElementById("defaultAccent");
+      const toggleHowToUseButton = document.getElementById(
+        "toggleHowToUseButton"
+      );
+      const howToUse = document.getElementById("howToUse");
 
       let intervalId;
       let regularSound = defaultMetronome;
@@ -967,6 +1030,11 @@
       sizeSlider.addEventListener("input", () => {
         grid.style.height = `${sizeSlider.value}px`;
         updateGrid();
+      });
+
+      toggleHowToUseButton.addEventListener("click", () => {
+        howToUse.style.display =
+          howToUse.style.display === "none" ? "block" : "none";
       });
 
       function updateGrid() {
